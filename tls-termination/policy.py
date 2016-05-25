@@ -4,7 +4,7 @@ from Zorp.Core import FALSE, TRUE, ZD_PROTO_TCP, DBSockAddr, SockAddrInet
 from Zorp.Router import DirectedRouter
 from Zorp.Dispatch import Dispatcher
 from Zorp.Service import Service
-from Zorp.Http import HttpProxy, HTTP_HDR_INSERT
+from Zorp.Http import AbstractHttpProxy, HttpProxy, HTTP_HDR_INSERT, HTTP_REQ_POLICY, HTTP_REQ_REJECT
 from Zorp.Encryption import \
     EncryptionPolicy, \
     ClientOnlyEncryption, \
@@ -86,24 +86,65 @@ class HttpProxySecurityHeaders(HttpProxy):
         self.response_header["X-XSS-Protection"] = (HTTP_HDR_INSERT, "1; mode=block")
 
 
+class HttpProxyHttpsRedirect(AbstractHttpProxy):
+    def config(self):
+        AbstractHttpProxy.config(self)
+
+        self.error_silent = TRUE
+        self.request["*"] = (HTTP_REQ_POLICY, self.redirectRequest)
+
+    def redirectRequest(self, method, url, version):
+        self.error_status = 301
+        self.error_headers = "Location: https://%s/\n" % (self.request_url_host, )
+
+        return HTTP_REQ_REJECT
+
+
 def default():
     def getServiceList():
         import os
         service_enabled = os.getenv("ZORP_TLS_TERMINATION_SERVICE_ENABLED", "").lower().split()
         return service_enabled
+
+    def getBindParams(service):
+        service_params = {
+            "https" : {
+                "hostname" : "www",
+                "tls_port" : 443,
+                "orig_port" : 80,
+            },
+        }
+
+        import socket
+        hostname = service_params[service]["hostname"]
+        server_address = socket.gethostbyname(hostname)
+        tls_port = service_params[service]["tls_port"]
+        orig_port = service_params[service]["orig_port"]
+
+        print repr(server_address), repr(tls_port), repr(orig_port)
+        return server_address, tls_port, orig_port
+
     serviceList = getServiceList()
 
     if "https" in serviceList:
-        import socket
-        server_address = socket.gethostbyname("www")
+        server_address, tls_port, orig_port = getBindParams("https")
 
         Service(
             name="service_https_tls_termination",
             proxy_class=HttpProxySecurityHeaders,
             encryption_policy="encryption_policy_tls_termination",
-            router=DirectedRouter(dest_addr=SockAddrInet(server_address, 80), forge_addr=FALSE),
+            router=DirectedRouter(dest_addr=SockAddrInet(server_address, orig_port), forge_addr=FALSE),
         )
         Dispatcher(
-            bindto=DBSockAddr(SockAddrInet('0.0.0.0', 443), protocol=ZD_PROTO_TCP),
+            bindto=DBSockAddr(SockAddrInet('0.0.0.0', tls_port), protocol=ZD_PROTO_TCP),
             service="service_https_tls_termination",
+        )
+
+        Service(
+            name="service_http_https_redirection",
+            proxy_class=HttpProxyHttpsRedirect,
+        )
+        Dispatcher(
+            bindto=DBSockAddr(SockAddrInet('0.0.0.0', orig_port), protocol=ZD_PROTO_TCP),
+            service="service_http_https_redirection",
         )

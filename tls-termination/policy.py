@@ -5,6 +5,7 @@ from Zorp.Router import DirectedRouter
 from Zorp.Dispatch import Dispatcher
 from Zorp.Service import Service
 from Zorp.Http import AbstractHttpProxy, HttpProxy, HTTP_HDR_INSERT, HTTP_REQ_POLICY, HTTP_REQ_REJECT
+from Zorp.Plug import PlugProxy
 from Zorp.Encryption import \
     EncryptionPolicy, \
     ClientOnlyEncryption, \
@@ -113,6 +114,11 @@ def default():
                 "tls_port" : 443,
                 "orig_port" : 80,
             },
+            "imaps" : {
+                "hostname" : "mail",
+                "tls_port" : 993,
+                "orig_port" : 143,
+            },
         }
 
         import socket
@@ -147,4 +153,18 @@ def default():
         Dispatcher(
             bindto=DBSockAddr(SockAddrInet('0.0.0.0', orig_port), protocol=ZD_PROTO_TCP),
             service="service_http_https_redirection",
+        )
+
+    if "imaps" in serviceList:
+        server_address, tls_port, orig_port = getBindParams("imaps")
+
+        Service(
+            name="service_imaps_tls_termination",
+            proxy_class=PlugProxy,
+            encryption_policy="encryption_policy_tls_termination",
+            router=DirectedRouter(dest_addr=SockAddrInet(server_address, orig_port), forge_addr=FALSE),
+        )
+        Dispatcher(
+            bindto=DBSockAddr(SockAddrInet('0.0.0.0', tls_port), protocol=ZD_PROTO_TCP),
+            service="service_imaps_tls_termination",
         )

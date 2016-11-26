@@ -7,8 +7,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
     devscripts \
     equivs \
     git-core
-RUN git clone -b 6.0.8.0 https://github.com/Balasys/libzorpll.git /usr/src/libzorpll \
- && git clone -b 6.0.8 https://github.com/Balasys/zorp.git /usr/src/zorp \
+RUN git clone -b 6.0.9.0 https://github.com/Balasys/libzorpll.git /usr/src/libzorpll \
+ && git clone -b 6.0.9 https://github.com/Balasys/zorp.git /usr/src/zorp \
  && mk-build-deps -i -t "apt-get -o Debug::pkgProblemResolver=yes --yes --no-install-recommends" /usr/src/libzorpll/debian/control \
  && mk-build-deps -i -t "apt-get -o Debug::pkgProblemResolver=yes --yes --no-install-recommends" /usr/src/zorp/debian/control
 RUN DEBIAN_FRONTEND=noninteractive apt-get autoremove -y \

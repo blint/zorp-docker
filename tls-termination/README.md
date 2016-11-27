@@ -2,6 +2,7 @@
 
 * 6.0.8 ([Dockerfile](https://github.com/Balasys/zorp-docker/blob/6.0.8/tls-termination/Dockerfile))
 * 6.0.9 ([Dockerfile](https://github.com/Balasys/zorp-docker/blob/6.0.9/tls-termination/Dockerfile))
+* 6.0.10 ([Dockerfile](https://github.com/Balasys/zorp-docker/blob/6.0.10/tls-termination/Dockerfile))
 * latest ([Dockerfile](https://github.com/Balasys/zorp-docker/blob/master/tls-termination/Dockerfile))
 
 # What is Zorp GPL?

@@ -4,7 +4,7 @@ from Zorp.Core import FALSE, TRUE, ZD_PROTO_TCP, DBSockAddr, SockAddrInet
 from Zorp.Router import DirectedRouter
 from Zorp.Dispatch import Dispatcher
 from Zorp.Service import Service
-from Zorp.Http import HttpProxy
+from Zorp.Http import HttpProxy, HTTP_HDR_INSERT
 from Zorp.Encryption import \
     EncryptionPolicy, \
     ClientOnlyEncryption, \
@@ -62,6 +62,30 @@ EncryptionPolicy(
     )
 )
 
+
+class HttpProxySecurityHeaders(HttpProxy):
+    cert_chain_digests = open("/etc/zorp/certs/cert.dgst").read().splitlines()
+    ca_chain_digests = open("/etc/zorp/certs/ca.dgst").read().splitlines()
+
+    def config(self):
+        HttpProxy.config(self)
+
+        self.response_header["Content-Security-Policy"] = (HTTP_HDR_INSERT, "default-src https:")
+        self.response_header["Referrer-Policy"] = (HTTP_HDR_INSERT, "no-referrer")
+        hpkp_header_values = (
+            ["max-age=%d" % (timedelta(days=30).total_seconds()), ] +
+            ["pin-sha256=\"" + dgst + "\"" for dgst in self.cert_chain_digests] +
+            ["pin-sha256=\"" + dgst + "\"" for dgst in self.ca_chain_digests] +
+            ["includeSubDomains", ]
+        )
+        #self.response_header["Public-Key-Pins"] = (HTTP_HDR_INSERT, ";".join(hpkp_header_values))
+        hsts_header_value = "max-age=%d" % (timedelta(days=365).total_seconds())
+        self.response_header["Strict-Transport-Security"] = (HTTP_HDR_INSERT, hsts_header_value)
+        self.response_header["x-frame-options"] = (HTTP_HDR_INSERT, "SAMEORIGIN")
+        self.response_header["X-Content-Type-Options"] = (HTTP_HDR_INSERT, "nosniff")
+        self.response_header["X-XSS-Protection"] = (HTTP_HDR_INSERT, "1; mode=block")
+
+
 def default():
     def getServiceList():
         import os
@@ -75,7 +99,7 @@ def default():
 
         Service(
             name="service_https_tls_termination",
-            proxy_class=HttpProxy,
+            proxy_class=HttpProxySecurityHeaders,
             encryption_policy="encryption_policy_tls_termination",
             router=DirectedRouter(dest_addr=SockAddrInet(server_address, 80), forge_addr=FALSE),
         )

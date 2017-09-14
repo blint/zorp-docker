@@ -22,7 +22,7 @@ COPY . /app/
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD [ \
-     "/usr/lib/zorp/zorp", \
+     "/usr/sbin/zorp", \
      "--foreground", \
      "--no-syslog", \
      "--user", "zorp", \
